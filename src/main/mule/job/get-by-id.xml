@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:mongo="http://www.mulesoft.org/schema/mule/mongo"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mongo http://www.mulesoft.org/schema/mule/mongo/current/mule-mongo.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="get-by-id-flow" doc:id="40e4b16d-ebd9-4d88-94fc-dccb0f7d739a" >
+		<set-variable value="#[attributes.uriParams.'id']" doc:name="customerId" doc:id="fab7bad4-f2a2-4a0c-b58e-7ba633141e3c" variableName="customerId"/>
+		<mongo:find-documents collectionName="customers" fields="personalInformation" doc:name="Query Documents By ID" doc:id="21c7b0ca-cef0-4296-8e31-e7d170c0ec11" config-ref="MongoDB_Config">
+			<mongo:query ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"customerId": vars.customerId
+}]]]></mongo:query>
+		</mongo:find-documents>
+		<ee:transform doc:name="Process JSON Output" doc:id="8b4fdbab-b28e-4510-97be-e6dca5cdedee" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

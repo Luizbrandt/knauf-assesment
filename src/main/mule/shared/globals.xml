@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway"
+	xmlns:mongo="http://www.mulesoft.org/schema/mule/mongo"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/mongo http://www.mulesoft.org/schema/mule/mongo/current/mule-mongo.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd">
+	
+	<http:listener-config name="fuank-global-hmc-customer-api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="fuank-global-hmc-customer-api-config" api="resource::24997ac6-e54e-4e0c-bdb3-5dd42c338939:fuank-global-hmc-customer-api:1.0.2:raml:zip:fuank-global-hmc-customer-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="90938849-67f7-4874-a070-10039f5a79c0" >
+		<salesforce:basic-connection username="${salesforce.username}" password="${salesforce.password}" securityToken="${salesforce.token}"/>
+	</salesforce:sfdc-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="4e411a07-964f-4f3d-a70d-7e7a9e8724d3" file="properties/${mule.env}.yaml" />
+	<global-property doc:name="Global Property" doc:id="62853314-5b12-4b6c-bce0-cd98a25bab07" name="mule.env" value="dev" />
+	<mongo:config name="MongoDB_Config" doc:name="MongoDB Config" doc:id="4510a010-0d2a-4d0f-9f12-2549e66dd7f7" >
+		<mongo:connection-string-connection connectionString="${cosmos.connectionString}" />
+	</mongo:config>
+	<api-gateway:autodiscovery apiId="${api.id}" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="c3e0929b-a0ac-4441-8440-88075f44c24c" flowRef="fuank-global-hmc-customer-api-main" />
+	
+
+</mule>

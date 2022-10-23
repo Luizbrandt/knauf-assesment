@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:mongo="http://www.mulesoft.org/schema/mule/mongo" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/mongo http://www.mulesoft.org/schema/mule/mongo/current/mule-mongo.xsd">
+	<flow name="post-salesforce-flow" doc:id="559e0b52-3426-4d35-a82a-ed5d43d802bc" >
+		<logger level="INFO" doc:name="LOG INFO Start Message" doc:id="86773b95-e613-4551-8b70-9e2aaad08d19" message="[post-salesforce-flow] Start Customer POST operation ..." />
+		<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;uuid()]" doc:name="customerId" doc:id="9c204933-a613-4862-b4d7-70a9ea1ff537" variableName="customerId"/>
+		<ee:transform doc:name="Process JSON Input" doc:id="34bc83af-f16a-4f46-a8b8-62bb3041eb32" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="salesforceInput" ><![CDATA[%dw 2.0
+output application/java
+var personalInfo = payload.'personalInformation'
+---
+[
+	{
+	  "Customer_Id__c": vars.'customerId',
+	  "First_Name__c": personalInfo.'firstName',
+	  "Last_Name__c": personalInfo.'lastName',
+	  "Company_Name__c": personalInfo.'companyName',
+	  "Email__c	": personalInfo.'email',
+	  "Phone__c": personalInfo.'phone'
+	}
+]]]></ee:set-variable>
+				<ee:set-variable variableName="cosmosInput" ><![CDATA[%dw 2.0
+output application/json
+var personalInfo = payload.'personalInformation'
+var address = payload.'address'
+---
+[
+	{
+	  "customerId": vars.'customerId',
+	  "personalInfo": personalInfo,
+	  "address": address
+	}
+]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<salesforce:query doc:name="Query Existing Customers By Email" doc:id="d45a3280-a9f1-44e0-8cc5-26d572455908" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT Id,Customer_Id__c FROM Customer__c WHERE Email__c=':email']]></salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[output application/json
+---
+{
+	"email" : vars.salesforceInput.'email'
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<choice doc:name="Choice" doc:id="c9d6fe91-1a59-415e-a45f-0d0bf2b4d4f0" >
+			<when expression="#[isEmpty(payload)]">
+				<salesforce:create doc:name="Create New Customer" doc:id="3ae224cc-b93e-45a5-9745-9ab051e1fa08" config-ref="Salesforce_Config" type="Customer__c">
+					<salesforce:records ><![CDATA[#[vars.'salesforceInput']]]></salesforce:records>
+				</salesforce:create>
+				<ee:transform doc:name="Process JSON Salesforce Output" doc:id="4dac16e1-e810-4c9f-b2e3-4195d4e66e1c">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<flow-ref doc:name="Extractor Post Cosmos Flow" doc:id="7dc6d209-9a06-42eb-b0bd-ea6c148be0c2" name="post-salesforce-confirmation-flow" />
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="LOG INFO Customer Found Message" doc:id="cce6487c-0feb-4f2a-8bf5-4ffaacb17d11" message="[post-salesforce-flow] Salesforce already contains a customer with given email." />
+				<ee:transform doc:name="Existing User Response Message" doc:id="ae8c6cbf-6a1b-4622-92c0-4dc799df938b" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"success": false,
+	"message": "SaleForce already contains a user with the given email."
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	
+</flow>
+	<flow name="post-salesforce-confirmation-flow" doc:id="91e6d2c7-ed49-47fc-92f9-ca2fcebc4946" >
+		<logger level="INFO" doc:name="LOG INFO Check Salesforce Creation" doc:id="229821d9-0fa4-4651-aaa1-2b6202b13627" message="[extractor-post-cosmos-flow] Checking if customer was created on Salesforce ..."/>
+		<choice doc:name="Choice" doc:id="4aa81d7d-f484-422f-add0-21d0ba1978aa" >
+			<when expression="#[payload.successful == true]">
+				<logger level="ERROR" doc:name="LOG ERROR Creation Success Message" doc:id="7993e3b5-813b-4610-bf7f-43af849d2b16" message="[extractor-post-cosmos-flow] Customer created on Salesforce!" />
+				<mongo:insert-documents collectionName="customers" doc:name="Insert documents" doc:id="23f06247-4851-4137-9da5-0ec8f6b126e3" config-ref="MongoDB_Config">
+					<mongo:documents ><![CDATA[#[vars.'cosmosInput']]]></mongo:documents>
+				</mongo:insert-documents>
+				<ee:transform doc:name="Process JSON Cosmos Output" doc:id="cb725bdb-a854-4ffc-a341-2d0a6042824e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<flow-ref doc:name="Post Cosmos Confirmation Flow" doc:id="3f4b9c77-bdf7-47e4-9e4b-cc0e9ec28a74" name="post-cosmos-confirmation-flow" />
+			</when>
+			<otherwise >
+				<logger level="ERROR" doc:name="LOG ERROR Creation Failed Message" doc:id="395df623-8a29-490b-8778-e9832a249e70" message="[extractor-post-cosmos-flow] Customer creation on Salesforce failed, stopping integration process."/>
+				<ee:transform doc:name="Creation Failed Response Message" doc:id="d6abb7b8-c883-4b3a-9c21-39c4654b7ea2" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"success": false,
+	"message": "Customer creation on SalesForce failed."
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="post-cosmos-confirmation-flow" doc:id="777c9e1b-aa8d-4013-9772-ba9dc0dd2421" >
+		<logger level="INFO" doc:name="LOG INFO Check Cosmos Creation" doc:id="eb44a362-ed59-45dc-8ca9-35422096f33b" message="[extractor-post-cosmos-flow] Checking if customer was created in CosmosDB ..." />
+		<choice doc:name="Choice" doc:id="1b146c8e-00ee-4c49-90e3-cc710f4290f5" >
+			<when expression="#[payload.successful == true]">
+				<ee:transform doc:name="Process Output" doc:id="a19ec874-3166-48f5-84ef-2b105377640a" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var sf = vars.salesforceInput[0]
+var cm = vars.cosmosInput[0]
+---
+{
+	"success": true,
+	"message": "Customer created correctly successfully!",
+	"createdResource": {
+	  "salesforceObject": sf,
+	  "cosmosDbObject": cm
+	}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<logger level="ERROR" doc:name="LOG ERROR Creation Failed Message" doc:id="3dbe4ca7-d29f-4e32-91cc-0e1978045df8" message="[extractor-post-cosmos-flow] Customer creation on Cosmos failed, stopping integration process." />
+			</otherwise>
+		</choice>
+	</flow>
+
+</mule>

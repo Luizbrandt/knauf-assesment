@@ -1,0 +1,14 @@
+http:
+  port: "8081"
+
+api:
+  id: "18254300"
+
+salesforce:
+  username: "abrandtfrancisco_dev@gmail.com"
+  password: "kb25to89A@"
+  token: "gJ4CJSdllYRvnMzrVSFBD39nU"
+  url: "https://brandtdev2-dev-ed.my.salesforce.com/"
+
+cosmos:
+  connectionString: "mongodb+srv://root:root@cluster0.t3bon.mongodb.net/fuank?retryWrites=true&w=majority"
